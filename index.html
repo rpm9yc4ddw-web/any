@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#10141c">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.png">
+<title>端末管理</title>
+<style>
+  * { -webkit-tap-highlight-color: transparent; }
+  body { margin:0; min-height:100vh; background:#10141c; color:#cdd5e0;
+    font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;
+    padding:16px 12px 40px; box-sizing:border-box;
+    padding-top:calc(16px + env(safe-area-inset-top)); }
+  .num { font-family:"SF Mono",ui-monospace,Menlo,monospace; font-variant-numeric:tabular-nums; }
+  .head { display:flex; align-items:center; gap:6px; margin-bottom:10px; }
+  .title { font-size:17px; font-weight:700; color:#e8edf4; }
+  .save { font-size:12px; color:#5b6675; margin-left:auto; }
+  .ubtn { height:30px; min-width:34px; border-radius:7px; border:1px solid #2a3342;
+    background:#161c26; color:#cdd5e0; font-size:13px; cursor:pointer; padding:0 8px; }
+  .ubtn:disabled { opacity:.3; }
+  .panel { background:#131a25; border:1px solid #232b38; border-radius:8px; padding:10px 12px; margin-bottom:10px; }
+  .stats-title { font-size:11px; color:#8a94a6; font-weight:700; margin-bottom:6px; }
+  .stats-row { display:flex; justify-content:space-between; font-size:12px; padding:3px 0;
+    border-bottom:1px solid #1a2230; }
+  .stats-row:last-child { border-bottom:none; }
+  .stats-v { font-weight:700; color:#e8edf4; }
+  .regbar { display:flex; gap:6px; margin-bottom:8px; }
+  .regbar input { flex:1; min-width:0; }
+  .regbar select { width:auto; flex:none; max-width:40%; }
+  .regbtn { background:#1e2a3d; border:1px solid #3b4a63; color:#c8d6ee;
+    border-radius:6px; font-size:13px; font-weight:700; padding:6px 12px; cursor:pointer; white-space:nowrap; }
+  .chips { display:flex; flex-wrap:wrap; gap:5px; margin:-2px 0 10px; }
+  .chip { font-size:11px; background:#1a2230; color:#8a94a6; border-radius:5px;
+    padding:2px 7px; display:flex; align-items:center; gap:4px; }
+  .chip span { cursor:pointer; opacity:.5; }
+  .legend { display:flex; flex-wrap:wrap; gap:10px; font-size:10px; color:#8a94a6;
+    margin-bottom:10px; align-items:center; }
+  .lg { display:flex; align-items:center; gap:4px; }
+  .lg i { width:9px; height:9px; border-radius:50%; display:inline-block; }
+  .today { display:flex; gap:8px; margin-bottom:10px; }
+  .td { flex:1; background:#131a25; border:1px solid #232b38; border-radius:8px;
+    padding:8px 0 6px; text-align:center; cursor:pointer; }
+  .td.on { border-color:#4a6a9b; background:#16213170; }
+  .td-v { font-size:18px; font-weight:700; line-height:1; }
+  .td-k { font-size:9px; color:#5b6675; display:block; margin-top:3px; }
+  .toolbar { display:flex; gap:4px; margin-bottom:10px; }
+  .toolbar select { flex:1 1 0; min-width:0; width:auto; padding:7px 3px; }
+  .card { background:#161c26; border:1px solid #232b38; border-radius:10px;
+    margin-bottom:12px; overflow:hidden; }
+  .sum { display:flex; align-items:center; gap:10px; padding:11px 12px; }
+  .sum-tap { display:flex; align-items:center; gap:10px; flex:1; cursor:pointer; min-width:0; }
+  .sdot { width:10px; height:10px; border-radius:50%; flex:none; display:block; }
+  .dots { display:flex; flex-direction:column; gap:3px; flex:none; }
+  .sum-name { font-size:15px; font-weight:700; color:#e8edf4; white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis; }
+  .kv { text-align:center; }
+  .kv-v { font-size:19px; font-weight:700; line-height:1; }
+  .kv-k { font-size:9px; color:#5b6675; display:block; margin-top:2px; }
+  .counter { display:flex; align-items:center; gap:2px; }
+  .cbtn { width:32px; height:32px; border-radius:8px; border:1px solid #2a3342;
+    background:#0d1118; color:#cdd5e0; font-size:16px; font-weight:700; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; }
+  .cbtn:active { background:#1e2a3d; }
+  .cval { min-width:30px; text-align:center; font-size:15px; font-weight:700; color:#e8edf4; }
+  .qcol { display:flex; flex-direction:column; gap:4px; }
+  .qrow { display:flex; align-items:center; gap:3px; }
+  .qlab { font-size:9px; color:#5b6675; width:16px; font-weight:700; }
+  .qbtn { width:32px; height:27px; border-radius:6px; border:1px solid #2a3342;
+    background:#0d1118; font-size:13px; font-weight:700; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; padding:0; }
+  .qbtn:active { background:#1e2a3d; }
+  .qbtn.qok { color:#7dd3a8; border-color:#2c6a48; }
+  .qbtn.qng { color:#f08c8c; border-color:#7a3535; }
+  .qbtn.qng.on { background:#3a1a1a; }
+  .qbtn.qtng { color:#f08cc8; border-color:#8a3f6a; }
+  .qbtn.qtng.on { background:#2e1424; }
+  .body { padding:0 12px 12px; border-top:1px solid #1d2530; }
+  .sec { font-size:10px; color:#5b6675; letter-spacing:.08em; margin:12px 0 6px; font-weight:700; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .full { grid-column:1 / -1; }
+  input, select, textarea { background:#0d1118; border:1px solid #2a3342; border-radius:6px;
+    color:#e8edf4; padding:7px 9px; font-size:16px; width:100%; box-sizing:border-box;
+    font-family:inherit; }
+  input:focus, select:focus, textarea:focus { outline:none; border-color:#4a6a9b; }
+  .label { font-size:10px; color:#5b6675; margin-bottom:3px; display:block; }
+  .ro { background:#131a25; border:1px solid #1d2530; border-radius:6px; padding:7px 9px;
+    font-size:13px; font-weight:700; }
+  .seg { display:flex; gap:6px; }
+  .seg button { flex:1; padding:7px 0; border-radius:6px; font-size:13px; font-weight:700;
+    border:1px solid #2a3342; background:#0d1118; color:#8a94a6; cursor:pointer; }
+  .seg button.on-g { background:#16283d; color:#7ab3f0; border-color:#2f568a; }
+  .seg button.on-f { background:#1d1d3a; color:#9a9af0; border-color:#4a4a9b; }
+  .seg button.on-ok { background:#153524; color:#7dd3a8; border-color:#2c6a48; }
+  .seg button.on-ng { background:#3a1a1a; color:#f08c8c; border-color:#7a3535; }
+  .seg button.on-err { background:#241d3a; color:#b8a7f0; border-color:#6d5bb8; }
+  .seg button.on-terr { background:#2e1424; color:#f08cc8; border-color:#8a3f6a; }
+  .pwrow { display:flex; align-items:center; gap:6px; }
+  .mini { background:none; border:1px solid #2a3342; color:#8a94a6; border-radius:6px;
+    font-size:11px; padding:5px 9px; cursor:pointer; white-space:nowrap; }
+  .savebtn { width:100%; margin-top:14px; padding:11px 0; border-radius:8px; border:none;
+    background:#3b6fd4; color:#fff; font-size:14px; font-weight:700; cursor:pointer; }
+  .savebtn.flash { background:#2c8a55; }
+  .rec { border-radius:8px; margin-bottom:6px; overflow:hidden; border:1px solid #232b38; }
+  .rec-pass { border-color:#2c6a48; background:#12241a; }
+  .rec-fail { border-color:#7a3535; background:#241214; }
+  .rec-err { border-color:#6d5bb8; background:#1c1730; }
+  .rec-terr { border-color:#8a3f6a; background:#241424; }
+  .rec-sum { display:flex; align-items:center; gap:8px; padding:8px 10px; cursor:pointer;
+    font-size:12px; font-weight:700; }
+  .rec-pass .rec-sum { color:#7dd3a8; }
+  .rec-fail .rec-sum { color:#f08c8c; }
+  .rec-err .rec-sum { color:#b8a7f0; }
+  .rec-terr .rec-sum { color:#f08cc8; }
+  .etag { font-size:9px; background:#241d3a; color:#b8a7f0; border:1px solid #6d5bb8;
+    border-radius:4px; padding:0 4px; font-weight:700; }
+  .ttag { font-size:9px; background:#2e1424; color:#f08cc8; border:1px solid #8a3f6a;
+    border-radius:4px; padding:0 4px; font-weight:700; }
+  .rec-x { margin-left:auto; cursor:pointer; opacity:.6; }
+  .rec-body { padding:2px 10px 10px; }
+  .rec-grid { display:grid; grid-template-columns:1fr 1fr; gap:4px 12px; font-size:12px; }
+  .rec-k { color:#5b6675; font-size:10px; }
+  .rec-v { color:#cdd5e0; word-break:break-all; }
+  .del { background:none; border:1px solid #3a2020; color:#a05555; border-radius:6px;
+    font-size:11px; padding:6px 12px; cursor:pointer; }
+  .del-yes { background:#3a1a1a; border:1px solid #7a3535; color:#f08c8c; border-radius:6px;
+    font-size:11px; font-weight:700; padding:6px 12px; cursor:pointer; }
+  .delrow { display:flex; gap:6px; margin-top:12px; align-items:center; }
+  .archbtn { background:none; border:1px solid #2a3342; color:#8a94a6; border-radius:6px;
+    font-size:11px; padding:6px 12px; cursor:pointer; }
+  .archbar { width:100%; padding:11px 0; border-radius:8px; border:1px dashed #2a3342;
+    background:#131a25; color:#8a94a6; font-size:13px; font-weight:700; cursor:pointer;
+    margin-top:4px; box-sizing:border-box; }
+  .archnote { font-size:11px; color:#8a94a6; background:#1a2230; border-radius:6px;
+    padding:6px 10px; margin-bottom:8px; }
+  .empty { text-align:center; color:#5b6675; padding:40px 0; font-size:14px; }
+  .chev { color:#5b6675; font-size:11px; margin-left:auto; }
+  .tag14 { font-size:10px; background:#153524; color:#7dd3a8; border:1px solid #2c6a48;
+    border-radius:5px; padding:1px 6px; font-weight:700; }
+  .tag30 { font-size:10px; background:#0e2b33; color:#5cd6e0; border:1px solid #2a7a84;
+    border-radius:5px; padding:1px 6px; font-weight:700; }
+  .tagdup { font-size:10px; background:#3a1a1a; color:#f08c8c; border:1px solid #7a3535;
+    border-radius:5px; padding:1px 6px; font-weight:700; }
+  .acc-tag { font-size:10px; border-radius:5px; padding:1px 6px; font-weight:700; }
+  .acc-g { background:#16283d; color:#7ab3f0; }
+  .acc-f { background:#1d1d3a; color:#9a9af0; }
+  .dupwarn { font-size:11px; color:#f08c8c; background:#2a1214; border:1px solid #7a3535;
+    border-radius:6px; padding:6px 9px; margin-top:5px; }
+  .acc-row { padding:7px 0; border-bottom:1px solid #1a2230; font-size:12px; }
+  .acc-row:last-child { border-bottom:none; }
+  .acc-l1 { display:flex; align-items:center; gap:6px; font-weight:700; color:#e8edf4; flex-wrap:wrap; }
+  .acc-l2 { display:flex; gap:10px; margin-top:2px; color:#8a94a6; flex-wrap:wrap;
+    user-select:text; -webkit-user-select:text; }
+  .acc-idle { margin-left:auto; font-size:11px; color:#5b6675; }
+  .bk-row { display:flex; gap:6px; flex-wrap:wrap; }
+  #bkText { min-height:60px; margin-top:6px; font-family:ui-monospace,Menlo,monospace; resize:vertical; }
+  .bk-msg { font-size:11px; color:#7dd3a8; margin-top:4px; }
+  .calhead { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  .calnav { width:36px; height:30px; border-radius:7px; border:1px solid #2a3342;
+    background:#0d1118; color:#cdd5e0; font-size:14px; cursor:pointer; }
+  .calttl { font-size:13px; font-weight:700; color:#e8edf4; }
+  .calgrid { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; }
+  .calwd { font-size:9px; color:#5b6675; text-align:center; padding-bottom:3px; }
+  .calcell { text-align:center; padding:5px 0 3px; border-radius:6px; font-size:12px;
+    color:#8a94a6; cursor:pointer; }
+  .calcell.sel { background:#1e2a3d; color:#e8edf4; font-weight:700; }
+  .calcell.tdy { outline:1px solid #4a6a9b; }
+  .caldot { width:4px; height:4px; border-radius:50%; background:#5cd6e0; margin:2px auto 0; }
+  .caldot.off { background:transparent; }
+  .calact { font-size:12px; padding:5px 2px; border-bottom:1px solid #1a2230;
+    display:flex; gap:8px; align-items:center; }
+  .calact:last-child { border-bottom:none; }
+  .calact-n { font-weight:700; color:#e8edf4; }
+  .calact-a { color:#8a94a6; }
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+<div class="head">
+  <div class="title">端末管理</div>
+  <button class="ubtn" id="undoBtn" data-act="undo">↩</button>
+  <button class="ubtn" id="redoBtn" data-act="redo">↪</button>
+  <button class="ubtn" data-act="togglePanel" data-p="stats">集計</button>
+  <button class="ubtn" data-act="togglePanel" data-p="cal">暦</button>
+  <button class="ubtn" data-act="togglePanel" data-p="acc">垢</button>
+  <button class="ubtn" data-act="togglePanel" data-p="bk">BK</button>
+  <div class="save" id="saveState"></div>
+</div>
+
+<div class="panel hidden" id="statsPanel"></div>
+<div class="panel hidden" id="calPanel"></div>
+<div class="panel hidden" id="accPanel"></div>
+<div class="panel hidden" id="bkPanel">
+  <div class="bk-row">
+    <button class="regbtn" data-act="bkCopy">コピー</button>
+    <button class="regbtn" data-act="bkPaste">ペーストで復元</button>
+    <button class="regbtn" data-act="bkManual">手動復元</button>
+    <button class="regbtn" data-act="bkFileSave">ファイル保存</button>
+    <button class="regbtn" data-act="bkFileLoad">ファイル読込</button>
+    <input type="file" id="bkFile" accept=".json,.txt" class="hidden">
+  </div>
+  <textarea id="bkText" placeholder="コピー→全データをクリップボードへ。ペーストで復元→コピー中のバックアップから即復元。手動復元→ここに貼って押す"></textarea>
+  <div class="bk-msg" id="bkMsg"></div>
+</div>
+
+<div class="regbar">
+  <select id="devSel" data-act2="devSelPick"></select>
+  <input id="newName" placeholder="新規端末名">
+  <button class="regbtn" data-act="addDevice">追加</button>
+  <button class="regbtn" style="padding:6px 8px;opacity:.7" data-act="toggleOrgDev">整理</button>
+</div>
+<div class="chips hidden" id="devChips"></div>
+
+<div class="regbar">
+  <select id="parSel" data-act2="parSelPick"></select>
+  <input id="newParent" placeholder="新規親機名">
+  <button class="regbtn" data-act="addParent">追加</button>
+  <button class="regbtn" style="padding:6px 8px;opacity:.7" data-act="toggleOrgPar">整理</button>
+</div>
+<div class="chips" id="parActiveChips"></div>
+<div class="chips hidden" id="parChips"></div>
+
+<div class="today" id="today"></div>
+
+<div class="legend">
+  <span class="lg"><i style="background:#4ade80"></i>通過</span>
+  <span class="lg"><i style="background:#f06a6a"></i>否</span>
+  <span class="lg"><i style="background:#a78bfa"></i>CIエラー</span>
+  <span class="lg"><i style="background:#f08cc8"></i>タスクエラー</span>
+  <span class="lg"><i style="background:#f0b95c"></i>re7日+</span>
+  <span class="lg"><i style="background:#153524;border:1px solid #2c6a48;border-radius:3px"></i>ci14達成</span>
+  <span class="lg"><i style="background:#5cd6e0"></i>CI放置30日+(復帰)</span>
+</div>
+
+<div class="toolbar">
+  <select id="searchSel" data-act2="setSearch"></select>
+  <select id="sortSel" data-act2="setSort">
+    <option value="default">登録順</option>
+    <option value="re">re大きい順</option>
+    <option value="ci">ci大きい順</option>
+  </select>
+  <select id="filterSel" data-act2="setFilter">
+    <option value="all">全て</option>
+    <option value="7">re7日+</option>
+    <option value="14">ci14達成</option>
+    <option value="err">CIエラー</option>
+    <option value="terr">タスクエラー</option>
+    <option value="pass">通過のみ</option>
+    <option value="fail">否のみ</option>
+    <option value="30">放置30日+</option>
+  </select>
+</div>
+
+<div class="archnote hidden" id="archNote">📦 アーカイブ表示中。各端末の「アーカイブから戻す」で復帰できます</div>
+<div id="list"></div>
+<button class="archbar hidden" id="archBar" data-act="toggleArch"></button>
+
+<script src="app.js"></script>
+</body>
+</html>
