@@ -1,4 +1,4 @@
-const CACHE = "dm-cache-v1";
+const CACHE = "dm-cache-v2";
 const ASSETS = ["./", "./index.html", "./app.js", "./manifest.json", "./icon.png"];
 
 self.addEventListener("install", (e) => {
