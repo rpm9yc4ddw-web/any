@@ -1,5 +1,5 @@
 "use strict";
-/* 端末管理 スタンドアロン版 (ver16.5相当) */
+/* 端末管理 スタンドアロン版 (ver16.6) */
 
 // ---- ユーティリティ ----
 const todayStr = () => {
@@ -30,13 +30,13 @@ const ciLabel = (v) => (v === true ? "可" : v === false ? "否" : "—");
 
 // ---- 状態 ----
 const KEY = "device-manager-v7";
-let S = { rows: [], parentList: [], nameHistory: [], parentHistory: [], domainList: [], activityLog: [] };
+let S = { rows: [], parentList: [], nameHistory: [], parentHistory: [], domainList: [], eventList: [], activityLog: [] };
 const U = {
   open: {}, openRec: {}, showPw: {}, confirmDel: {}, accShowPw: false,
   panels: { stats: false, cal: false, acc: false, bk: false },
   orgDev: false, orgPar: false,
   searchQ: "", sortMode: "default", filterMode: "all",
-  domAdd: null, flash: {},
+  domAdd: null, evAdd: null, flash: {},
   calYM: { y: new Date().getFullYear(), m: new Date().getMonth() },
   calSel: todayStr(),
 };
@@ -48,7 +48,7 @@ const newDevice = (name) => ({
   ciDays: 0, taskDays: 0, lastCiAt: todayStr(),
   ciError: false, ciErrorNote: "", taskError: false, taskErrorNote: "",
   parentName: "", parentNote: "", passStatus: null, passDate: todayStr(),
-  runTime: 0, reward14: "", rewardLeft: "", records: [], archived: false,
+  runTime: 0, reward14: "", rewardLeft: "", eventName: "", memo: "", records: [], archived: false,
 });
 
 // ---- 保存/読込 ----
@@ -62,6 +62,7 @@ function load() {
       S.nameHistory = [...new Set([...(d.nameHistory || []), ...S.rows.map((x) => x.name)])];
       S.parentHistory = [...new Set([...(d.parentHistory || []), ...S.parentList])];
       S.domainList = d.domainList || [];
+      S.eventList = d.eventList || [];
       S.activityLog = d.activityLog || [];
     }
   } catch (e) {
@@ -170,6 +171,7 @@ function saveRecord(id) {
     runTime: row.runTime || 0, parentName: row.parentName, parentNote: row.parentNote,
     passStatus: row.passStatus, passDate: row.passDate,
     reward14: row.reward14, rewardLeft: row.rewardLeft,
+    eventName: row.eventName || "", memo: row.memo || "",
   }, ...(row.records || [])];
   logAct(row.name, "レコード保存");
   U.flash[id] = true;
@@ -202,6 +204,7 @@ function restoreFrom(txt) {
     S.nameHistory = [...new Set([...(d.nameHistory || []), ...d.rows.map((x) => x.name)])];
     S.parentHistory = [...new Set([...(d.parentHistory || []), ...S.parentList])];
     S.domainList = d.domainList || [];
+    S.eventList = d.eventList || [];
     S.activityLog = d.activityLog || [];
     setMsg("bkMsg", "復元した ✓");
     document.getElementById("bkText").value = "";
@@ -444,8 +447,10 @@ function renderBody(row, dup, re) {
           <div><div class="rec-k">親機</div><div class="rec-v">${esc(rc.parentName) || "—"}</div></div>
           <div><div class="rec-k">親機内容</div><div class="rec-v">${esc(rc.parentNote) || "—"}</div></div>
           <div><div class="rec-k">通過日</div><div class="rec-v num">${fmtMD(rc.passDate)}</div></div>
+          <div><div class="rec-k">対象イベント</div><div class="rec-v">${esc(rc.eventName) || "—"}</div></div>
           <div><div class="rec-k">14日報酬</div><div class="rec-v">${esc(rc.reward14) || "—"}</div></div>
           <div><div class="rec-k">残報酬</div><div class="rec-v">${esc(rc.rewardLeft) || "—"}</div></div>
+          <div class="full" style="grid-column:1/-1"><div class="rec-k">備考</div><div class="rec-v">${esc(rc.memo) || "—"}</div></div>
         </div></div>` : ""}
       </div>`;
     }).join("")}` : "";
@@ -468,6 +473,23 @@ function renderBody(row, dup, re) {
     ${recsHtml}
     <div class="sec">入力</div>
     <div class="grid2">
+      <div><span class="label">端末名(変更可)</span>
+        <input value="${esc(row.name)}" data-f="name" data-id="${id}" autocomplete="off"></div>
+      <div><span class="label">対象イベント</span>
+        ${U.evAdd && U.evAdd.id === id
+          ? `<div style="display:flex;gap:6px">
+               <input style="min-width:0" value="${esc(U.evAdd.text)}" placeholder="イベント名" autocomplete="off" id="evAddInput" data-f="evAddText" data-id="${id}">
+               <button class="mini" data-act="evCommit" data-id="${id}">追加</button>
+             </div>`
+          : `<div style="display:flex;gap:6px">
+               <select style="min-width:0" data-f="eventName" data-id="${id}">
+                 <option value="">選択</option>
+                 ${[...new Set([...S.eventList, ...(row.eventName ? [row.eventName] : [])])].map((n) =>
+                   `<option value="${esc(n)}" ${n === row.eventName ? "selected" : ""}>${esc(n)}</option>`).join("")}
+               </select>
+               <button class="mini" data-act="evAdd" data-id="${id}">＋</button>
+             </div>`}
+      </div>
       <div><span class="label">垢</span><div class="seg">
         <button class="${row.accType === "g" ? "on-g" : ""}" data-act="setAcc" data-id="${id}" data-v="g">g</button>
         <button class="${row.accType === "f" ? "on-f" : ""}" data-act="setAcc" data-id="${id}" data-v="f">f</button>
@@ -522,6 +544,7 @@ function renderBody(row, dup, re) {
       ${inp("通過日", "passDate", "date", row.passDate || "")}
       ${txt("14日報酬", "reward14", row.reward14 || "")}
       ${txt("残報酬", "rewardLeft", row.rewardLeft || "")}
+      ${txt("備考", "memo", row.memo || "", "full")}
     </div>
     <button class="savebtn ${U.flash[id] ? "flash" : ""}" data-act="saveRec" data-id="${id}">${U.flash[id] ? "保存した ✓" : "この内容を保存"}</button>
     <div class="delrow">
@@ -669,6 +692,19 @@ document.addEventListener("click", (e) => {
     case "togglePw": U.showPw[id] = !U.showPw[id]; render(); break;
     case "toggleAccPw": U.accShowPw = !U.accShowPw; render(); break;
     case "domAdd": U.domAdd = { id, text: "" }; render(); document.getElementById("domAddInput")?.focus(); break;
+    case "evAdd": U.evAdd = { id, text: "" }; render(); document.getElementById("evAddInput")?.focus(); break;
+    case "evCommit": {
+      const v = (U.evAdd?.text || document.getElementById("evAddInput")?.value || "").trim();
+      const r = findRow(id);
+      if (v && r) {
+        snapshot(null);
+        if (!S.eventList.includes(v)) S.eventList.push(v);
+        r.eventName = v;
+      }
+      U.evAdd = null;
+      commit();
+      break;
+    }
     case "domCommit": {
       let d = (U.domAdd?.text || document.getElementById("domAddInput")?.value || "").trim();
       const r = findRow(id);
@@ -739,7 +775,21 @@ document.addEventListener("change", (e) => {
   if (!f || !id) return;
   const r = findRow(id);
   if (!r) return;
-  if (f === "emailLocal") {
+  if (f === "name") {
+    const v = el.value.trim();
+    if (!v) { render(); return; }
+    if (v !== r.name && S.rows.some((x) => x.id !== id && x.name === v && !x.archived)) {
+      alert("同じ名前の現役端末があるため変更できません");
+      render();
+      return;
+    }
+    snapshot(null);
+    r.name = v;
+    if (!S.nameHistory.includes(v)) S.nameHistory.push(v);
+    commit();
+  } else if (f === "evAddText") {
+    if (U.evAdd) U.evAdd.text = el.value;
+  } else if (f === "emailLocal") {
     const em = r.email || "";
     const at = em.indexOf("@");
     const dom = at === -1 ? "@gmail.com" : em.slice(at);
@@ -763,6 +813,11 @@ document.addEventListener("keydown", (e) => {
     const id = e.target.dataset.id;
     if (U.domAdd) U.domAdd.text = e.target.value;
     document.querySelector(`[data-act="domCommit"][data-id="${id}"]`)?.click();
+  }
+  if (e.key === "Enter" && e.target.id === "evAddInput") {
+    const id = e.target.dataset.id;
+    if (U.evAdd) U.evAdd.text = e.target.value;
+    document.querySelector(`[data-act="evCommit"][data-id="${id}"]`)?.click();
   }
 });
 
